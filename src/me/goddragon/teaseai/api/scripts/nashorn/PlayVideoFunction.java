@@ -31,7 +31,8 @@ public class PlayVideoFunction extends CustomFunction {
                 if (args[0] instanceof String) {
                     String arg = (String) args[0];
                     if (arg.startsWith("http://") || arg.startsWith("https://")) {
-                        return MediaHandler.getHandler().playVideo(arg, false);
+                        MediaHandler.getHandler().playVideo(arg, false);
+                        return null;
                     } else {
                         File file = FileUtils.getRandomMatchingFile(args[0].toString());
                         if (file == null) {
@@ -39,7 +40,8 @@ public class PlayVideoFunction extends CustomFunction {
                             return null;
                         }
 
-                        return MediaHandler.getHandler().playVideo(file);
+                        MediaHandler.getHandler().playVideo(file);
+                        return null;
                     }
                 }
                 break;
@@ -47,7 +49,8 @@ public class PlayVideoFunction extends CustomFunction {
                 if (args[1] instanceof Boolean) {
                     String arg = (String) args[0];
                     if (arg.startsWith("http://") || arg.startsWith("https://")) {
-                        return MediaHandler.getHandler().playVideo(arg, (Boolean) args[1]);
+                        MediaHandler.getHandler().playVideo(arg, (Boolean) args[1]);
+                        return null;
                     } else {
                         File file = FileUtils.getRandomMatchingFile(args[0].toString());
                         if (file == null) {
@@ -55,7 +58,8 @@ public class PlayVideoFunction extends CustomFunction {
                             return null;
                         }
 
-                        return MediaHandler.getHandler().playVideo(file, (Boolean) args[1]);
+                        MediaHandler.getHandler().playVideo(file, (Boolean) args[1]);
+                        return null;
                     }
                 }
 

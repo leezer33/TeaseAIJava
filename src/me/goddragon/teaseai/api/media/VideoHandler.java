@@ -14,20 +14,22 @@ import me.goddragon.teaseai.TeaseAI;
 import me.goddragon.teaseai.utils.TeaseLogger;
 
 public class VideoHandler {
-    public void playVideo(File file, boolean waitUntilFinishedPlaying) {
+    public MediaPlayer playVideo(File file, boolean waitUntilFinishedPlaying) {
         if (!file.exists()) {
             TeaseLogger.getLogger().log(
                     Level.SEVERE, "Video " + file.getPath() + " does not exist.");
         }
 
         try {
-            playVideo(file.toURI().toURL().toExternalForm(), waitUntilFinishedPlaying);
+            return playVideo(file.toURI().toURL().toExternalForm(), waitUntilFinishedPlaying);
         } catch (MalformedURLException e) {
             e.printStackTrace();
         }
+
+        return null;
     }
 
-    public void playVideo(String uri, boolean waitUntilFinishedPlaying) {
+    public MediaPlayer playVideo(String uri, boolean waitUntilFinishedPlaying) {
         if (currentVideoPlayer != null) {
             currentVideoPlayer.stop();
             currentVideoPlayer = null;
@@ -81,6 +83,8 @@ public class VideoHandler {
         } else {
             currentVideoPlayer = videoPlayer;
         }
+
+        return currentVideoPlayer;
     }
 
     public void stopVideo() {
@@ -93,6 +97,10 @@ public class VideoHandler {
 
     public boolean isPlayingVideo() {
         return (currentVideoPlayer != null) && (currentVideoPlayer.getStatus() != Status.DISPOSED);
+    }
+
+    public MediaPlayer getCurrentVideoPlayer() {
+        return currentVideoPlayer;
     }
 
     public void setVideoPlaybackObserver(IObserver observer) {

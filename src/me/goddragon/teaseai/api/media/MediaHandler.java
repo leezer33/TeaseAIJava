@@ -5,6 +5,7 @@ import java.net.URISyntaxException;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.logging.Level;
 
+import javafx.scene.media.MediaPlayer;
 import me.goddragon.teaseai.utils.TeaseLogger;
 
 /**
@@ -26,16 +27,16 @@ public class MediaHandler {
     private final ImageHandler imageHandler = new ImageHandler();
     private final AtomicBoolean imagesLocked = new AtomicBoolean(false);
 
-    public void playVideo(File file) {
-        playVideo(file, false);
+    public MediaPlayer playVideo(File file) {
+        return playVideo(file, false);
     }
 
-    public void playVideo(File file, boolean waitUntilFinishedPlaying) {
-        videoHandler.playVideo(file, waitUntilFinishedPlaying);
+    public MediaPlayer playVideo(File file, boolean waitUntilFinishedPlaying) {
+        return videoHandler.playVideo(file, waitUntilFinishedPlaying);
     }
 
-    public void playVideo(String uri, boolean waitUntilFinishedPlaying) {
-        videoHandler.playVideo(uri, waitUntilFinishedPlaying);
+    public MediaPlayer playVideo(String uri, boolean waitUntilFinishedPlaying) {
+        return videoHandler.playVideo(uri, waitUntilFinishedPlaying);
     }
 
     public void stopVideo() {
@@ -44,6 +45,11 @@ public class MediaHandler {
 
     public boolean isPlayingVideo() {
         return videoHandler.isPlayingVideo();
+    }
+
+    public MediaPlayer getCurrentVideoPlayer()
+    {
+        return videoHandler.getCurrentVideoPlayer();
     }
 
     public void showPicture(File file) {

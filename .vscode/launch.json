@@ -6,18 +6,18 @@
     "configurations": [
         {
             "type": "java",
-            "name": "Launch Main",
-            "request": "launch",
-            "mainClass": "me.goddragon.teaseai.Main",
-            "projectName": "TeaseAIJava"
-        },
-        {
-            "type": "java",
             "name": "Launch TeaseAI",
             "request": "launch",
             "mainClass": "me.goddragon.teaseai.TeaseAI",
             "projectName": "TeaseAIJava",
             "vmArgs": "--module-path javafx-sdk-15.0.1/lib --add-modules javafx.controls,javafx.fxml,javafx.base,javafx.media,javafx.graphics,javafx.swing,javafx.web"
+        },
+        {
+            "type": "java",
+            "name": "Launch Main",
+            "request": "launch",
+            "mainClass": "me.goddragon.teaseai.Main",
+            "projectName": "TeaseAIJava"
         }
     ]
 }

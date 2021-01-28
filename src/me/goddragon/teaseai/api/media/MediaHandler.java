@@ -3,8 +3,11 @@ package me.goddragon.teaseai.api.media;
 import javafx.scene.image.ImageView;
 import javafx.scene.layout.StackPane;
 import javafx.scene.media.Media;
+import javafx.scene.media.MediaException;
 import javafx.scene.media.MediaPlayer;
+import javafx.scene.media.MediaPlayer.Status;
 import javafx.scene.media.MediaView;
+
 import me.goddragon.teaseai.TeaseAI;
 import me.goddragon.teaseai.utils.FileUtils;
 import me.goddragon.teaseai.utils.TeaseLogger;
@@ -56,18 +59,20 @@ public class MediaHandler {
         return null;
     }
 
-    public MediaPlayer playVideo(String uri, boolean wait) {
-        currentVideoPlayer = new MediaPlayer(new Media(uri));
-        currentVideoPlayer.setAutoPlay(true);
-        this.imagesLocked = true;
+    public MediaPlayer playVideo(String uri, boolean waitUntilPlaybackFinished) {
+        if (currentVideoPlayer != null)
+            currentVideoPlayer.stop();
 
-        TeaseAI.application.runOnUIThread(new Runnable() {
-            @Override
-            public void run() {
-                MediaView mediaView = TeaseAI.application.getController().getMediaView();
-                StackPane mediaViewBox = TeaseAI.application.getController().getMediaViewBox();
+        currentVideoPlayer = tryCreateSelfDisposingMediaPlayer(new Media(uri), true, waitUntilPlaybackFinished);
+        if (currentVideoPlayer != null) {
+            imagesLocked = true;
+            currentVideoPlayer.setAutoPlay(true);
 
-                //Handle visibilities
+            TeaseAI.application.runOnUIThread(() -> {
+                final MediaView mediaView = TeaseAI.application.getController().getMediaView();
+                final StackPane mediaViewBox = TeaseAI.application.getController().getMediaViewBox();
+
+                // Handle visibilities
                 mediaView.setOpacity(1);
                 TeaseAI.application.getController().getImageView().setOpacity(0);
 
@@ -75,30 +80,57 @@ public class MediaHandler {
                 mediaView.fitWidthProperty().bind(mediaViewBox.widthProperty());
                 mediaView.fitHeightProperty().bind(mediaViewBox.heightProperty());
                 mediaView.setMediaPlayer(currentVideoPlayer);
-            }
-        });
-
-        //Check if we want to wait for the media to finish
-        if (wait) {
-            waitForPlayer(currentVideoPlayer);
-            currentVideoPlayer = null;
-        } else {
-            //Unlock the images again (of course they can be unlocked by the user during the video)
-            currentVideoPlayer.setOnEndOfMedia(new Runnable() {
-                @Override
-                public void run() {
-                    imagesLocked = false;
-                    currentVideoPlayer = null;
-                }
             });
+
+            if (waitUntilPlaybackFinished) {
+                while (currentVideoPlayer.getStatus() != Status.DISPOSED) {
+                    TeaseAI.application.waitPossibleScripThread(0);
+                    TeaseAI.application.checkForNewResponses();
+                }
+            }
         }
 
         return currentVideoPlayer;
     }
 
+    private MediaPlayer tryCreateSelfDisposingMediaPlayer(Media media,
+            boolean unlockImagesWhenFinished, boolean notifyScriptThreadWhenFinished) {
+        try {
+            final MediaPlayer mediaPlayer = new MediaPlayer(media);
+
+            // Unlock the images when the playback finishes or fails
+            // (of course they can be unlocked by the user during the playback)
+            final Runnable onPlaybackEnded = () -> {
+                if (unlockImagesWhenFinished) {
+                    imagesLocked = false;
+                }
+                mediaPlayer.dispose();
+                if (notifyScriptThreadWhenFinished) {
+                    synchronized (TeaseAI.application.getScriptThread()) {
+                        TeaseAI.application.getScriptThread().notify();
+                    }
+                }
+            };
+
+            mediaPlayer.setOnEndOfMedia(onPlaybackEnded);
+            mediaPlayer.setOnError(onPlaybackEnded);
+            mediaPlayer.setOnHalted(onPlaybackEnded);
+            mediaPlayer.setOnStalled(onPlaybackEnded);
+
+            return mediaPlayer;
+
+        } catch (MediaException ex) {
+            TeaseLogger.getLogger().log(
+                    Level.SEVERE, "Failed to create MediaPlayer: " + ex.getMessage());
+        }
+
+        return null;
+    }
+
     public void stopVideo() {
-        currentVideoPlayer.stop();
-        currentVideoPlayer = null;
+        if (currentVideoPlayer != null) {
+            currentVideoPlayer.stop();
+        }
     }
 
     public void showPicture(File file) {
@@ -106,13 +138,13 @@ public class MediaHandler {
     }
 
     public void showPicture(File file, int durationSeconds) {
-                if (file == null) {
-                    TeaseAI.application.runOnUIThread(new Runnable() {
-                        @Override
-                        public void run() {
-                            removePicture();
-                        }
-                    });
+        if (file == null) {
+            TeaseAI.application.runOnUIThread(new Runnable() {
+                @Override
+                public void run() {
+                    removePicture();
+                }
+            });
 
             return;
         }
@@ -275,8 +307,8 @@ public class MediaHandler {
             if (responseCode == HttpURLConnection.HTTP_OK) {
                 TeaseLogger.getLogger().log(
                     Level.FINER, String.format("Fetched %,d bytes of type '%s' encoded as '%s'",
-                        connection.getContentLength(), connection.getContentType(),
-                        connection.getContentEncoding()));
+                                connection.getContentLength(), connection.getContentType(),
+                                connection.getContentEncoding()));
 
                 InputStream in = new BufferedInputStream(connection.getInputStream());
                 ByteArrayOutputStream out = new ByteArrayOutputStream();
@@ -296,7 +328,7 @@ public class MediaHandler {
                 fos.close();
             } else {
                 TeaseLogger.getLogger().log(
-                    Level.WARNING, "Unsupported response code, ignoring conent");
+                        Level.WARNING, "Unsupported response code, ignoring conent");
             }
         } catch (IOException ex) {
             TeaseLogger.getLogger().log(
@@ -337,7 +369,7 @@ public class MediaHandler {
     }
 
     public boolean isPlayingVideo() {
-        return currentVideoPlayer != null;
+        return (currentVideoPlayer != null) && (currentVideoPlayer.getStatus() != Status.DISPOSED);
     }
 
     public MediaPlayer getCurrentVideoPlayer() {

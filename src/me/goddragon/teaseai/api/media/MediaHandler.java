@@ -21,7 +21,9 @@ import java.net.MalformedURLException;
 import java.net.URI;
 import java.net.URISyntaxException;
 import java.net.URL;
+import java.util.ArrayList;
 import java.util.HashMap;
+import java.util.List;
 import java.util.Map;
 import java.util.logging.Level;
 
@@ -32,7 +34,7 @@ public class MediaHandler {
 
     private static MediaHandler handler = new MediaHandler();
 
-    private HashMap<URI, MediaPlayer> playingAudioClips = new HashMap<>();
+    private Map<URI, List<MediaPlayer>> playingAudioClips = new HashMap<>();
 
     private MediaPlayer currentVideoPlayer = null;
     private Animation currentAnimation = null;
@@ -201,12 +203,6 @@ public class MediaHandler {
         }
     }
 
-    private MediaPlayer getAudioPlayer(String uri) {
-        Media hit = new Media(uri);
-        MediaPlayer mediaPlayer = new MediaPlayer(hit);
-        return mediaPlayer;
-    }
-
     /*public MediaPlayer playSoundFromFolder(String path) {
         return playSoundFromFolder(path, false);
     }
@@ -242,14 +238,22 @@ public class MediaHandler {
         return null;
     }
 
-    public MediaPlayer playAudioWithURI(String uri, boolean wait) throws URISyntaxException {
-        MediaPlayer mediaPlayer = getAudioPlayer(uri);
-        playingAudioClips.put(new URI(uri), mediaPlayer);
-        mediaPlayer.play();
+    public MediaPlayer playAudioWithURI(String uri, boolean waitUntilPlaybackFinished)
+            throws URISyntaxException {
+        final MediaPlayer mediaPlayer = tryCreateSelfDisposingMediaPlayer(new Media(uri), false, waitUntilPlaybackFinished);
+        if (mediaPlayer != null) {
+            playingAudioClips.computeIfAbsent(new URI(uri), dummy -> new ArrayList<MediaPlayer>()).add(mediaPlayer);
+            mediaPlayer.play();
 
-        if (wait) {
-            waitForPlayer(mediaPlayer);
+            if (waitUntilPlaybackFinished) {
+                while (mediaPlayer.getStatus() != Status.DISPOSED) {
+                    TeaseAI.application.waitPossibleScripThread(0);
+                    TeaseAI.application.checkForNewResponses();
+                }
+            }
         }
+
+        purgeDisposedAudioMediaPlayers();
 
         return mediaPlayer;
     }
@@ -259,19 +263,18 @@ public class MediaHandler {
     }
 
     public void stopAudio(File file) {
-        if (!playingAudioClips.containsKey(file.toURI())) {
-            return;
-        }
-
-        playingAudioClips.get(file.toURI()).stop();
-        playingAudioClips.remove(file.toURI());
+        playingAudioClips.computeIfPresent(file.toURI(), (uri, listOfMediaPlayer) -> {
+            listOfMediaPlayer.forEach(MediaPlayer::stop);
+            return null;
+        });
     }
 
     public void stopAllAudio() {
-        for (Map.Entry<URI, MediaPlayer> clips : playingAudioClips.entrySet()) {
-            clips.getValue().stop();
-            playingAudioClips.get(clips.getKey()).stop();
-        }
+        playingAudioClips.forEach((uri, listOfMediaPlayer) -> {
+            listOfMediaPlayer.forEach(MediaPlayer::stop);
+        });
+
+        playingAudioClips.clear();
     }
 
     public File getImageFromURL(String url) throws IOException {
@@ -345,29 +348,6 @@ public class MediaHandler {
         return null;
     }
 
-    public void waitForPlayer(MediaPlayer mediaPlayer) {
-        final boolean[] hasFinishedPlaying = {false};
-        mediaPlayer.setOnEndOfMedia(new Runnable() {
-            @Override
-            public void run() {
-                imagesLocked = false;
-
-                synchronized (TeaseAI.application.getScriptThread()) {
-                    TeaseAI.application.getScriptThread().notify();
-                }
-
-                hasFinishedPlaying[0] = true;
-            }
-        });
-
-        while (!hasFinishedPlaying[0]) {
-            TeaseAI.application.waitPossibleScripThread(0);
-
-            //Check whether there are new responses to handle
-            TeaseAI.application.checkForNewResponses();
-        }
-    }
-
     public boolean isPlayingVideo() {
         return (currentVideoPlayer != null) && (currentVideoPlayer.getStatus() != Status.DISPOSED);
     }
@@ -394,5 +374,12 @@ public class MediaHandler {
 
     public static void setHandler(MediaHandler handler) {
         MediaHandler.handler = handler;
+    }
+
+    private void purgeDisposedAudioMediaPlayers() {
+        playingAudioClips.forEach(
+                (uri, listOfMediaPlayer)
+                        -> listOfMediaPlayer.removeIf(
+                                mediaPlayer -> mediaPlayer.getStatus() == Status.DISPOSED));
     }
 }

@@ -280,7 +280,7 @@ public class ChatParticipant {
 
         if (millisToWait > 0) {
             Text text = new Text(name + " is typing...");
-            text.setFill(Color.AQUA);
+            text.setFill(Color.BLUEVIOLET);
             text.setFont(Font.font(null, FontWeight.BOLD, TeaseAI.application.CHAT_TEXT_SIZE.getDouble() + 2));
             ChatHandler.getHandler().addTemporaryMessage(text);
 

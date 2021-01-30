@@ -1,9 +1,21 @@
 package me.goddragon.teaseai.api.media;
 
+import java.io.*;
+import java.net.HttpURLConnection;
+import java.net.MalformedURLException;
+import java.net.URI;
+import java.net.URISyntaxException;
+import java.net.URL;
+import java.util.ArrayList;
+import java.util.HashMap;
+import java.util.List;
+import java.util.Map;
+import java.util.concurrent.atomic.AtomicBoolean;
+import java.util.concurrent.atomic.AtomicReference;
+import java.util.logging.Level;
 import javafx.scene.image.ImageView;
 import javafx.scene.layout.StackPane;
 import javafx.scene.media.Media;
-import javafx.scene.media.MediaException;
 import javafx.scene.media.MediaPlayer;
 import javafx.scene.media.MediaPlayer.Status;
 import javafx.scene.media.MediaView;
@@ -15,17 +27,6 @@ import me.goddragon.teaseai.utils.media.AnimatedGif;
 import me.goddragon.teaseai.utils.media.Animation;
 import me.goddragon.teaseai.utils.media.ImageUtils;
 
-import java.io.*;
-import java.net.HttpURLConnection;
-import java.net.MalformedURLException;
-import java.net.URI;
-import java.net.URISyntaxException;
-import java.net.URL;
-import java.util.ArrayList;
-import java.util.HashMap;
-import java.util.List;
-import java.util.Map;
-import java.util.logging.Level;
 
 /**
  * Created by GodDragon on 22.03.2018.
@@ -34,105 +35,45 @@ public class MediaHandler {
 
     private static MediaHandler handler = new MediaHandler();
 
-    private Map<URI, List<MediaPlayer>> playingAudioClips = new HashMap<>();
-
-    private MediaPlayer currentVideoPlayer = null;
+    private final VideoPlayer videoPlayer;
+    private final AudioPlayer audioPlayer;
     private Animation currentAnimation = null;
-    private boolean imagesLocked = false;
+    private AtomicBoolean imagesLocked = new AtomicBoolean(false);
 
     private String currentImageURL;
 
-    public MediaPlayer playVideo(File file) {
-        return playVideo(file, false);
+    public MediaHandler() {
+        videoPlayer = new VideoPlayer(this::asyncOnVideoPlaybackEnded);
+        audioPlayer = new AudioPlayer();
     }
 
-    public MediaPlayer playVideo(File file, boolean wait) {
+    private void asyncOnVideoPlaybackEnded() {
+        imagesLocked.set(false);
+    }
+
+    public void playVideo(File file) {
+        playVideo(file, false);
+    }
+
+    public void playVideo(File file, boolean wait) {
         if (!file.exists()) {
-            TeaseLogger.getLogger().log(Level.SEVERE, "Video " + file.getPath() + " does not exist.");
-            return null;
-        }
-
-        try {
-            return playVideo(file.toURI().toURL().toExternalForm(), wait);
-        } catch (MalformedURLException e) {
-            e.printStackTrace();
-        }
-
-        return null;
-    }
-
-    public MediaPlayer playVideo(String uri, boolean waitUntilPlaybackFinished) {
-        if (currentVideoPlayer != null)
-            currentVideoPlayer.stop();
-
-        currentVideoPlayer = tryCreateSelfDisposingMediaPlayer(new Media(uri), true, waitUntilPlaybackFinished);
-        if (currentVideoPlayer != null) {
-            imagesLocked = true;
-            currentVideoPlayer.setAutoPlay(true);
-
-            TeaseAI.application.runOnUIThread(() -> {
-                final MediaView mediaView = TeaseAI.application.getController().getMediaView();
-                final StackPane mediaViewBox = TeaseAI.application.getController().getMediaViewBox();
-
-                // Handle visibilities
-                mediaView.setOpacity(1);
-                TeaseAI.application.getController().getImageView().setOpacity(0);
-
-                mediaView.setPreserveRatio(true);
-                mediaView.fitWidthProperty().bind(mediaViewBox.widthProperty());
-                mediaView.fitHeightProperty().bind(mediaViewBox.heightProperty());
-                mediaView.setMediaPlayer(currentVideoPlayer);
-            });
-
-            if (waitUntilPlaybackFinished) {
-                while (currentVideoPlayer.getStatus() != Status.DISPOSED) {
-                    TeaseAI.application.waitPossibleScripThread(0);
-                    TeaseAI.application.checkForNewResponses();
-                }
+            TeaseLogger.getLogger().log(
+                    Level.SEVERE, "Video " + file.getPath() + " does not exist.");
+        } else {
+            try {
+                playVideo(file.toURI().toURL().toExternalForm(), wait);
+            } catch (MalformedURLException e) {
+                e.printStackTrace();
             }
         }
-
-        return currentVideoPlayer;
     }
 
-    private MediaPlayer tryCreateSelfDisposingMediaPlayer(Media media,
-            boolean unlockImagesWhenFinished, boolean notifyScriptThreadWhenFinished) {
-        try {
-            final MediaPlayer mediaPlayer = new MediaPlayer(media);
-
-            // Unlock the images when the playback finishes or fails
-            // (of course they can be unlocked by the user during the playback)
-            final Runnable onPlaybackEnded = () -> {
-                if (unlockImagesWhenFinished) {
-                    imagesLocked = false;
-                }
-                mediaPlayer.dispose();
-                if (notifyScriptThreadWhenFinished) {
-                    synchronized (TeaseAI.application.getScriptThread()) {
-                        TeaseAI.application.getScriptThread().notify();
-                    }
-                }
-            };
-
-            mediaPlayer.setOnEndOfMedia(onPlaybackEnded);
-            mediaPlayer.setOnError(onPlaybackEnded);
-            mediaPlayer.setOnHalted(onPlaybackEnded);
-            mediaPlayer.setOnStalled(onPlaybackEnded);
-
-            return mediaPlayer;
-
-        } catch (MediaException ex) {
-            TeaseLogger.getLogger().log(
-                    Level.SEVERE, "Failed to create MediaPlayer: " + ex.getMessage());
-        }
-
-        return null;
+    public void playVideo(String uri, boolean waitUntilPlaybackFinished) {
+        videoPlayer.play(new Media(uri), waitUntilPlaybackFinished);
     }
 
     public void stopVideo() {
-        if (currentVideoPlayer != null) {
-            currentVideoPlayer.stop();
-        }
+        videoPlayer.stop();
     }
 
     public void showPicture(File file) {
@@ -203,39 +144,29 @@ public class MediaHandler {
         }
     }
 
-    /*public MediaPlayer playSoundFromFolder(String path) {
-        return playSoundFromFolder(path, false);
+    public void playAudio(String path) {
+        playAudio(path, false);
     }
 
-    public MediaPlayer playSoundFromFolder(String path, boolean wait) {
-        return playAudio(new File("Sounds\\" + path), wait);
-    }*/
-
-    public MediaPlayer playAudio(String path) {
-        return playAudio(path, false);
+    public void playAudio(String path, boolean wait) {
+        playAudio(new File(path), wait);
     }
 
-    public MediaPlayer playAudio(String path, boolean wait) {
-        return playAudio(new File(path), wait);
+    public void playAudio(File file) {
+        playAudio(file, false);
     }
 
-    public MediaPlayer playAudio(File file) {
-        return playAudio(file, false);
-    }
-
-    public MediaPlayer playAudio(File file, boolean wait) {
+    public void playAudio(File file, boolean waitUntilPlaybackFinished) {
         if (file == null || !file.exists()) {
-            TeaseLogger.getLogger().log(Level.SEVERE, "Audio " + (file == null ? "null" : file.getPath()) + " does not exist.");
-            return null;
+            TeaseLogger.getLogger().log(Level.SEVERE,
+                    "Audio " + (file == null ? "null" : file.getPath()) + " does not exist.");
+        } else {
+            try {
+                playAudioWithURI(file.toURI().toURL().toExternalForm(), waitUntilPlaybackFinished);
+            } catch (MalformedURLException | URISyntaxException e) {
+                e.printStackTrace();
+            }
         }
-
-        try {
-            return playAudioWithURI(file.toURI().toURL().toExternalForm(), wait);
-        } catch (MalformedURLException | URISyntaxException e) {
-            e.printStackTrace();
-        }
-
-        return null;
     }
 
     public MediaPlayer playAudioWithURI(String uri, boolean waitUntilPlaybackFinished)
@@ -349,7 +280,9 @@ public class MediaHandler {
     }
 
     public boolean isPlayingVideo() {
-        return (currentVideoPlayer != null) && (currentVideoPlayer.getStatus() != Status.DISPOSED);
+        final PlaybackStatus playbackStatus = videoPlaybackStatus.get();
+        return (playbackStatus == PlaybackStatus.STARTING)
+                || (playbackStatus == PlaybackStatus.PLAYING);
     }
 
     public MediaPlayer getCurrentVideoPlayer() {
@@ -357,11 +290,11 @@ public class MediaHandler {
     }
 
     public boolean isImagesLocked() {
-        return imagesLocked;
+        return imagesLocked.get();
     }
 
     public void setImagesLocked(boolean imagesLocked) {
-        this.imagesLocked = imagesLocked;
+        this.imagesLocked.set(imagesLocked);
     }
 
     public String getCurrentImageURL() {

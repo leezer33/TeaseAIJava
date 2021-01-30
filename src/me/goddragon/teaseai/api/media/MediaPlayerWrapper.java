@@ -7,18 +7,12 @@ import javafx.scene.media.MediaException;
 import javafx.scene.media.MediaPlayer;
 import javafx.scene.media.MediaView;
 
-import me.goddragon.teaseai.TeaseAI;
 import me.goddragon.teaseai.utils.TeaseLogger;
 
 public class MediaPlayerWrapper {
-    public enum PlaybackStatus { NOT_PLAYING, STARTING, PLAYING }
-
-    private final Runnable asyncCallbackOnPlaybackEnded;
-    private final MediaPlayer mediaPlayer;
-    private final AtomicReference<PlaybackStatus> playbackStatus =
-            new AtomicReference<>(PlaybackStatus.NOT_PLAYING);
-
-    public MediaPlayerWrapper(Media media, Runnable asyncCallbackOnPlaybackEnded) {
+    public MediaPlayerWrapper(Media media, Runnable asyncCallbackOnPlaybackStarted,
+            Runnable asyncCallbackOnPlaybackEnded) {
+        this.asyncCallbackOnPlaybackStarted = asyncCallbackOnPlaybackStarted;
         this.asyncCallbackOnPlaybackEnded = asyncCallbackOnPlaybackEnded;
         mediaPlayer = tryCreateSelfDisposingMediaPlayer(media);
     }
@@ -84,6 +78,10 @@ public class MediaPlayerWrapper {
     }
 
     private void asyncOnPlaybackStarted() {
+        if (asyncCallbackOnPlaybackStarted != null) {
+            asyncCallbackOnPlaybackStarted.run();
+        }
+
         playbackStatus.set(PlaybackStatus.PLAYING);
         synchronized (playbackStatus) {
             playbackStatus.notifyAll();
@@ -93,14 +91,6 @@ public class MediaPlayerWrapper {
     private void asyncOnPlaybackEnded() {
         mediaPlayer.dispose();
 
-        if (unlockImagesWhenFinished) {
-            imagesLocked.set(false);
-        }
-        if (notifyScriptThreadWhenFinished) {
-            synchronized (TeaseAI.application.getScriptThread()) {
-                TeaseAI.application.getScriptThread().notify();
-            }
-        }
         playbackStatus.set(PlaybackStatus.NOT_PLAYING);
         synchronized (playbackStatus) {
             playbackStatus.notifyAll();
@@ -114,4 +104,12 @@ public class MediaPlayerWrapper {
     public void bindToMediaView(MediaView mediaView) {
         mediaView.setMediaPlayer(mediaPlayer);
     }
+
+    public enum PlaybackStatus { NOT_PLAYING, STARTING, PLAYING }
+
+    private final Runnable asyncCallbackOnPlaybackStarted;
+    private final Runnable asyncCallbackOnPlaybackEnded;
+    private final MediaPlayer mediaPlayer;
+    private final AtomicReference<PlaybackStatus> playbackStatus =
+            new AtomicReference<>(PlaybackStatus.NOT_PLAYING);
 }

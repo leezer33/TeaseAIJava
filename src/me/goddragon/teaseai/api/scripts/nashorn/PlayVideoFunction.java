@@ -21,24 +21,22 @@ public class PlayVideoFunction extends CustomFunctionExtended {
         return true;
     }
 
-    protected MediaPlayer onCall(String pathOrUrl) {
-        return onCall(pathOrUrl, false);
+    protected void onCall(String pathOrUrl) {
+        onCall(pathOrUrl, false);
     }
 
-    protected MediaPlayer onCall(String pathOrUrl, Boolean waitUntilFinishedPlaying){
+    protected void onCall(String pathOrUrl, Boolean waitUntilFinishedPlaying){
         if (isHttpUrl(pathOrUrl)) {
-            return MediaHandler.getHandler().playVideo(pathOrUrl, waitUntilFinishedPlaying);
+            MediaHandler.getHandler().playVideo(pathOrUrl, waitUntilFinishedPlaying);
         } else {
             final File file = FileUtils.getRandomMatchingFile(pathOrUrl);
             if (file != null) {
-                return MediaHandler.getHandler().playVideo(file, waitUntilFinishedPlaying);
+                MediaHandler.getHandler().playVideo(file, waitUntilFinishedPlaying);
             } else {
                 TeaseLogger.getLogger().log(Level.SEVERE,
                         "Matching video file for path " + pathOrUrl + " does not exist.");
             }
         }
-
-        return null;
     }
 
     private boolean isHttpUrl(String path) {

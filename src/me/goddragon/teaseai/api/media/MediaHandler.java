@@ -305,7 +305,30 @@ public class MediaHandler {
             TeaseLogger.getLogger().log(
                     Level.SEVERE, "Url " + url + " does not appear to be an http connection");
         }
-
+		/*
+		 * HACK: Attempt to detect invalid images
+		 * The file-length is a *really* good cheat here, as invalid images 
+		 * and those we don't want are fixed size (as Tumblr removed etc. just 
+		 * uses the same image repeatedly)
+		 *
+		 * Log this and throw IO exception
+		 */
+		int fileLength = (int) file.length();
+		switch(fileLength)
+		{
+			case 0:
+				//Zero-length file, can't possibly be an image (404 or something?)
+				TeaseLogger.getLogger().log(
+                    Level.WARNING, "Downloaded image was of zero-length on url " + url);
+					throw new IOException();
+			case 5251:
+			case 6165:
+				//TUMBLR: Removed at copyright holder's request
+				//TUMBLR: Removed for violating community guidelines
+				TeaseLogger.getLogger().log(
+                    Level.WARNING, "Downloaded image appears to have been removed from Tumblr on url " + url);
+					throw new IOException();				
+		}
         if (file.exists()) {
             return file;
         }

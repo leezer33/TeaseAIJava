@@ -321,6 +321,11 @@ public class MediaHandler {
 				TeaseLogger.getLogger().log(
                     Level.WARNING, "Downloaded image was of zero-length on url " + url);
 					throw new IOException();
+			case 503:
+				//IMGUR: Image removed
+				TeaseLogger.getLogger().log(
+                    Level.WARNING, "Downloaded image appears to have been removed from Imgur on url " + url);
+					throw new IOException();
 			case 5251:
 			case 6165:
 				//TUMBLR: Removed at copyright holder's request

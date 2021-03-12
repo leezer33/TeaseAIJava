@@ -8,6 +8,7 @@ import me.goddragon.teaseai.api.media.MediaHandler;
 import me.goddragon.teaseai.api.media.MediaURL;
 import me.goddragon.teaseai.utils.FileUtils;
 import me.goddragon.teaseai.utils.TeaseLogger;
+import me.goddragon.teaseai.api.Exceptions.*;
 
 /**
  * Created by GodDragon on 25.03.2018.
@@ -72,9 +73,15 @@ public class ShowImageFunction extends CustomFunctionExtended {
     private File tryGetImageFromUrl(String url) {
         try {
             return MediaHandler.getHandler().getImageFromURL(url);
-        } catch (IOException e) {
-            TeaseLogger.getLogger().log(
+        } catch (IOException | ZeroByteImageException | ImageRemovedException | UnsupportedImageTypeException e) {
+			if(e instanceof IOException)
+			{
+				/*
+				 * Exception instances used to specify unwanted media have already been logged
+				 */
+				TeaseLogger.getLogger().log(
                     Level.SEVERE, String.format("Failed to fetch from url '%s'", url));
+			}
         }
 
         return null;

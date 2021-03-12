@@ -21,6 +21,7 @@ import java.net.URLConnection;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.logging.Level;
+import me.goddragon.teaseai.api.Exceptions.*;
 
 /**
  * Created by GodDragon on 26.03.2018.
@@ -299,14 +300,21 @@ public class MediaURL extends MediaHolder implements Observable {
 
                 try {
                     return MediaHandler.getHandler().getImageFromURL(url);
-                } catch (IOException e) {
+                } catch (IOException | ZeroByteImageException | ImageRemovedException | UnsupportedImageTypeException e) {
                     //Try different media if picture is down
                     if (e instanceof ConnectException && loops < 10) {
                         loops++;
                         return getRandomMedia(loops);
                     }
-
-                    e.printStackTrace();
+					if(e instanceof IOException)
+					{
+						/*
+						 * We only want to print a stack trace for 'real'
+						 * exceptions where something unexepected happened, not those
+						 * that we're using to trigger a retry of the image get for some reason
+						 */
+						e.printStackTrace();
+					}                    
                 }
             }
         }

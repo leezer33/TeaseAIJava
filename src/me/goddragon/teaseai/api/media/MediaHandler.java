@@ -11,6 +11,7 @@ import me.goddragon.teaseai.utils.TeaseLogger;
 import me.goddragon.teaseai.utils.media.AnimatedGif;
 import me.goddragon.teaseai.utils.media.Animation;
 import me.goddragon.teaseai.utils.media.ImageUtils;
+import me.goddragon.teaseai.api.Exceptions.*;
 
 import java.io.*;
 import java.net.HttpURLConnection;
@@ -242,7 +243,7 @@ public class MediaHandler {
         }
     }
 
-    public File getImageFromURL(String url) throws IOException {
+    public File getImageFromURL(String url) throws IOException, ZeroByteImageException, ImageRemovedException, UnsupportedImageTypeException {
         currentImageURL = url;
 
         String[] split = url.split("/");
@@ -320,19 +321,19 @@ public class MediaHandler {
 				//Zero-length file, can't possibly be an image (404 or something?)
 				TeaseLogger.getLogger().log(
                     Level.WARNING, "Downloaded image was of zero-length on url " + url);
-					throw new IOException();
+					throw new ZeroByteImageException(url);
 			case 503:
 				//IMGUR: Image removed
 				TeaseLogger.getLogger().log(
                     Level.WARNING, "Downloaded image appears to have been removed from Imgur on url " + url);
-					throw new IOException();
+					throw new IOException("");
 			case 5251:
 			case 6165:
 				//TUMBLR: Removed at copyright holder's request
 				//TUMBLR: Removed for violating community guidelines
 				TeaseLogger.getLogger().log(
                     Level.WARNING, "Downloaded image appears to have been removed from Tumblr on url " + url);
-					throw new IOException();				
+					throw new ImageRemovedException(url);				
 		}
 		/* HACK: ShowTeaseImage doesn't work with mis-named MP4s
 		 * Check this using the magic bytes for MP4, as they sometimes get mis-named as GIF or turn up in URL files
@@ -345,7 +346,7 @@ public class MediaHandler {
 		{
 			TeaseLogger.getLogger().log(
                 Level.WARNING, "Downloaded image appears to be an MP4. This is not supported by this function on " + url);
-				throw new IOException();
+				throw new UnsupportedImageTypeException(url);
 		}
 		if (file.exists()) {
             return file;

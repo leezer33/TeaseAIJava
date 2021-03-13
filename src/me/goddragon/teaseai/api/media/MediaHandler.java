@@ -329,7 +329,9 @@ public class MediaHandler {
 					throw new ImageRemovedException(url);
 			case 5251:
 			case 6165:
+			case 3973:
 				//TUMBLR: Removed at copyright holder's request
+				//TUMBLR: Removed for violating community guidelines
 				//TUMBLR: Removed for violating community guidelines
 				TeaseLogger.getLogger().log(
                     Level.WARNING, "Downloaded image appears to have been removed from Tumblr on url " + url);
@@ -342,7 +344,7 @@ public class MediaHandler {
 		 * Longer term, this could potentially be passed off to the video player, but for the meantime, 
 		 * let's just log this and throw an IO exception so it picks another URL.
 		 */
-		if(isMp4(file))
+		if(isVideoFile(file))
 		{
 			TeaseLogger.getLogger().log(
                 Level.WARNING, "Downloaded image appears to be an MP4. This is not supported by this function on " + url);
@@ -355,18 +357,30 @@ public class MediaHandler {
         return null;
     }
 	
-    private static boolean isMp4(File filename){
+    private static boolean isVideoFile(File filename){
 		try
 		{			
-			int MagicBytes[] = new int[] { 0x00, 0x00, 0x00, 0x18, 0x66, 0x74, 0x79, 0x70, 0x33, 0x67, 0x60, 0x35 };
+			int Mp4MagicBytes[] = new int[] { 0x00, 0x00, 0x00, 0x18, 0x66, 0x74, 0x79, 0x70, 0x33, 0x67, 0x60, 0x35 }; //MP4
+			int MatroskaMagicBytes[] = new int[] { 0x1A, 0x45, 0xDF, 0xA3 }; //MKV or WEBM
 			FileInputStream ins = new FileInputStream(filename);
+			boolean matroskaCandidate = true, mp4Candidate = true;
 			try {
-				for(int i = 0; i < MagicBytes.length; ++i) {
-					if(ins.read() != MagicBytes[i]) {
-						return false;
+				for(int i = 0; i < 12; ++i)  //Length of our longest candidate array
+				{
+					int currentByte = ins.read();
+					if(i < Mp4MagicBytes.length && currentByte != Mp4MagicBytes[i]) {
+						mp4Candidate = false;
+					}
+					if(i < MatroskaMagicBytes.length && currentByte != MatroskaMagicBytes[i])
+					{
+						matroskaCandidate = false;
 					}
 				}
-				return true;
+				if(matroskaCandidate || mp4Candidate)
+				{
+					return true;
+				}
+				return false;
 			} finally {
 				ins.close();
 			}

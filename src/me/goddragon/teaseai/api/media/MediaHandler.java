@@ -326,7 +326,7 @@ public class MediaHandler {
 				//IMGUR: Image removed
 				TeaseLogger.getLogger().log(
                     Level.WARNING, "Downloaded image appears to have been removed from Imgur on url " + url);
-					throw new IOException("");
+					throw new ImageRemovedException(url);
 			case 5251:
 			case 6165:
 				//TUMBLR: Removed at copyright holder's request

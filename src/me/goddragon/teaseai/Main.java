@@ -163,6 +163,12 @@ public class Main {
 						}
 						if(isWindows())
 						{
+							//No Windows only files, so we've got to check for incorrect ones instead
+							if(FileUtils.folderContains(dirFile, "libdecora_sse.dylib") || FileUtils.folderContains(dirFile, "libprism_sw.so"))
+							{
+								TeaseLogger.getLogger().log(Level.INFO, "JAVA-FX is for an incorrect platform, and must be re-downloaded.");
+								return null;
+							}
 							return dirFile; //no platform specific libraries
 						}
                         

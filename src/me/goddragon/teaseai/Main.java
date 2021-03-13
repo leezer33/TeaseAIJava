@@ -148,7 +148,24 @@ public class Main {
                     //Check if we have found the right lib folder containing the files we expect it to contain
                     if (dirFile.isDirectory() && dirFile.getName().equals("lib") && FileUtils.folderContains(dirFile, "javafx.base.jar")) {
                         //libFolder = dirFile;
-                        return dirFile;
+						TeaseLogger.getLogger().log(Level.INFO, "JAVA-FX folder candidate found: " + dirFile.getPath());
+						/*
+						 * HACK: Check for the presence of platform specific files within the JAVA-FX folder candidate
+						 *       Otherwise, copying an install between platforms will just silently fail
+						 */
+						if(isUnix() && FileUtils.folderContains(dirFile, "libprism_sw.so"))
+						{
+							return dirFile;
+						}
+						if(isMac() && FileUtils.folderContains(dirFile, "libdecora_sse.dylib"))
+						{
+							return dirFile;
+						}
+						if(isWindows())
+						{
+							return dirFile; //no platform specific libraries
+						}
+                        
                     }
                 }
             }
